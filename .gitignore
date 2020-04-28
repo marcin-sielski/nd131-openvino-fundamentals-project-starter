@@ -1,0 +1,8 @@
+model/public
+model/intel
+model/*.bin
+model/*.mapping
+model/*.xml
+__pycache__
+fac.ffm
+output.jpg

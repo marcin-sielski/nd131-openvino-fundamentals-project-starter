@@ -36,32 +36,69 @@ class Network:
 
     def __init__(self):
         ### TODO: Initialize any class variables desired ###
+        self.plugin = None
+        self.network = None
+        self.input_blob = None
+        self.output_blob = None
+        self.exec_network = None
+        self.infer_request = None
 
-    def load_model(self):
+    def load_model(self, model, device='MYRIAD', cpu_extension=None, \
+        debug=False):
         ### TODO: Load the model ###
+        model_xml = model
+        model_bin = os.path.splitext(model_xml)[0] + ".bin"
+        self.plugin = IECore()
+        self.network = IENetwork(model=model_xml, weights=model_bin)
         ### TODO: Check for supported layers ###
+        config = None
+        if debug:
+            config = {'LOG_LEVEL': 'LOG_TRACE'}
+        supported_layers = self.plugin.query_network(network=self.network, \
+            device_name=device, config=config)
+        unsupported_layers = \
+            [l for l in self.network.layers.keys() if l not in supported_layers]
+        if len(unsupported_layers) != 0 and debug:
+            print("Unsupported layers found: {}".format(unsupported_layers))
         ### TODO: Add any necessary extensions ###
+        if cpu_extension and "CPU" in device:
+            self.plugin.add_extension(cpu_extension, device)
         ### TODO: Return the loaded inference plugin ###
+        self.exec_network = self.plugin.load_network(self.network, device)
+        it = iter(self.network.inputs)
+        self.input_blob_info = None
+        self.input_blob = next(it)
+        if self.input_blob == "image_info":
+            self.input_blob_info = self.input_blob
+            self.input_blob = next(it)
+        self.output_blob = next(iter(self.network.outputs))
         ### Note: You may need to update the function parameters. ###
-        return
+
 
     def get_input_shape(self):
         ### TODO: Return the shape of the input layer ###
-        return
+        return self.network.inputs[self.input_blob].shape
 
-    def exec_net(self):
+    def get_output_shape(self):
+        return self.network.outputs[self.output_blob].shape
+
+    def exec_net(self, image):
         ### TODO: Start an asynchronous request ###
         ### TODO: Return any necessary information ###
-        ### Note: You may need to update the function parameters. ###
-        return
+        ### Note: You may need to update the function parameters. ### 
+        inputs = {self.input_blob: image}
+        if self.input_blob_info == "image_info":
+            inputs = {self.input_blob_info: \
+                (image.shape[2], image.shape[3], 1), self.input_blob: image}
+        self.exec_network.start_async(request_id=0, inputs=inputs)
 
     def wait(self):
         ### TODO: Wait for the request to be complete. ###
         ### TODO: Return any necessary information ###
         ### Note: You may need to update the function parameters. ###
-        return
+        return self.exec_network.requests[0].wait(-1)
 
     def get_output(self):
         ### TODO: Extract and return the output results
         ### Note: You may need to update the function parameters. ###
-        return
+        return self.exec_network.requests[0].outputs[self.output_blob]

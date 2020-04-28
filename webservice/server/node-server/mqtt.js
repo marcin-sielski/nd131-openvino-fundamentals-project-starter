@@ -1,6 +1,8 @@
 var config;
-var server;
-const mosca = require('mosca');
+const aedes = require('aedes')()
+const server = require('net').createServer(aedes.handle)
+const httpServer = require('http').createServer()
+const ws = require('websocket-stream')
 
 module.exports = {
     configure: function (c) {
@@ -8,17 +10,24 @@ module.exports = {
     },
 
     start: function () {
-        server = new mosca.Server({
-            port: config.mqtt.port,
-            http: config.mqtt.http,
-        });
+        server.listen(config.mqtt.port, function () {
+            console.log('server listening on port', config.mqtt.port)
+        })
 
-        server.on('ready', setup);
-        server.on('clientConnected', connected);
-        server.on('clientDisconnected', disconnected);
-        server.on('published', published);
-        server.on('subscribed', subscribed);
-        server.on('unsubscribed', unsubscribed);
+        ws.createServer({
+            server: httpServer
+        }, aedes.handle)
+
+        httpServer.listen(config.mqtt.http.port, function () {
+            console.log('websocket server listening on port', config.mqtt.http.port)
+        })
+
+        aedes.on('client', connecting);
+        aedes.on('clientReady', connected)
+        aedes.on('clientDisconnect', disconnected);
+        aedes.on('publish', published);
+        aedes.on('subscribe', subscribed);
+        aedes.on('unsubscribe', unsubscribed);
     },
 
     publish: function (topic, message) {
@@ -35,20 +44,24 @@ module.exports = {
     }
 };
 
-function setup() {
-    console.log('Mosca server started.');
+function connecting(client) {
+    console.log(`Client ${client.id} is connecting`);
 }
 
 function connected(client) {
     console.log(`Client ${client.id} connected`);
 }
 
-function subscribed(topic, client) {
-    console.log(`Client ${client.id} subscribed to ${topic}.`);
+function subscribed(subscriptions, client) {
+    for (var i = 0; i < subscriptions.length; i++) {
+        console.log(`Client ${client.id} subscribed to ${subscriptions[i].topic}.`);
+    }
 }
 
-function unsubscribed(topic, client) {
-    console.log(`Client ${client.id} unsubscribed from ${topic}.`);
+function unsubscribed(subscriptions, client) {
+    for (var i = 0; i < subscriptions.length; i++) {
+        console.log(`Client ${client.id} unsubscribed from ${subscriptions[i].topic}.`);
+    }
 }
 
 function disconnected(client) {

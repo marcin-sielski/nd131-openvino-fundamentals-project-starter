@@ -18,13 +18,20 @@ class CameraFeed extends React.Component {
     this.setState( { mjpgSrc: `${ this.mjpgSrc }?ver=${ d.getTime() }` } );
   }
 
+  autoRefresh(source) {
+    setInterval(function() {
+      var ver = new Date().getTime();
+      document.getElementById('camera').setAttribute('src', source+'?ver=' + ver);
+    }, 2000)
+  }
+
   render() {
     const width = SETTINGS.CAMERA_FEED_WIDTH;//640
     const imgStyle = { "maxWidth": `${ width }px` };
     return (
       <div className="camera-feed" >
         <div className="camera-feed-container">
-          <img src={ this.state.mjpgSrc } alt="camera feed" style={ imgStyle } onClick={ this.refreshImage } className="camera-feed-img" />
+          <img src={ this.state.mjpgSrc } alt="camera feed" style={ imgStyle } className="camera-feed-img" id="camera" onLoad={ this.autoRefresh(this.state.mjpgSrc) } />
         </div>
       </div>
     );
